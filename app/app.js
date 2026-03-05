@@ -305,7 +305,9 @@ async function checkLogin(alertExpired = true) {
 			ui.busyLogin(false);
 			ui.showDashboard();
 
-			Settings.subscriber = utils.toBoolean(userContext.header.user.enableLabsInPersonalPlan) || utils.toBoolean(userContext.header.user.consumer_subscription_active);
+			Settings.subscriber =
+				utils.toBoolean(userContext.header.user.enableLabsInPersonalPlan) ||
+				utils.toBoolean(userContext.header.user.consumer_subscription_active);
 			fetchCourses(Settings.subscriber).then(() => {
 				console.log("fetchCourses done");
 			});
@@ -557,7 +559,7 @@ function renderCourses(response, isResearch = false) {
 		$coursesItems.append(courseElements);
 
 		if (response.next) {
-            const dataUrl = Array.isArray(response.next) ? response.next : [response.next];
+			const dataUrl = Array.isArray(response.next) ? response.next : [response.next];
 			// added loadMore Button
 			$coursesSection.append(
 				`<button class="ui basic blue fluid load-more button disposable" data-url=${JSON.stringify(dataUrl)}>
@@ -658,6 +660,7 @@ async function fetchCourseContent(courseId, courseName, courseUrl) {
 		const courseData = {
 			id: courseId,
 			name: courseName,
+			courseUrl: courseUrl,
 			chapters: [],
 			totalLectures: 0,
 			encryptedVideos: 0,
@@ -686,6 +689,14 @@ async function fetchCourseContent(courseId, courseName, courseUrl) {
 			} else {
 				const lecture = { type, name: item.title, src: "", quality: Settings.download.videoQuality, isEncrypted: false };
 				const { asset, supplementary_assets } = item;
+
+				if (!asset) {
+					appendLog("No asset found", `Course: ${courseId}|${courseName}`, `Lecture: ${item.id}|${item.title}`);
+					chapterData.lectures.push(lecture);
+					courseData.totalLectures++;
+					return;
+				}
+
 				const assetType = asset.asset_type.toLowerCase();
 
 				if (assetType == "article") {
@@ -710,9 +721,8 @@ async function fetchCourseContent(courseId, courseName, courseUrl) {
 						lecture.src = `<script type="text/javascript">window.location = "${courseUrl}/${item._class}/${item.id}";</script>`;
 						appendLog("File not uploaded", `Course: ${courseId}|${courseName}`, `Lecture: ${item.id}|${item.title}`);
 					} else {
-
-						switch ( (lecture.quality || "").toLowerCase()) {
-                            case "":
+						switch ((lecture.quality || "").toLowerCase()) {
+							case "":
 							case "auto":
 							case "highest":
 								lecture.quality = streams.maxQuality;
@@ -721,7 +731,7 @@ async function fetchCourseContent(courseId, courseName, courseUrl) {
 								lecture.quality = streams.minQuality;
 								break;
 							default:
-                                lecture.quality = utils.isNumber(lecture.quality) ? lecture.quality : lecture.quality.slice(0, -1);
+								lecture.quality = utils.isNumber(lecture.quality) ? lecture.quality : lecture.quality.slice(0, -1);
 						}
 
 						if (lecture.quality && !streams.sources[lecture.quality]) {
@@ -815,18 +825,18 @@ function loadMore(loadMoreButton) {
 		.then((resp) => {
 			$courses.append(...resp.results.map((course) => createCourseElement(course, false)));
 			if (!resp.next) {
-                if (url.length > 1) {
-                    $button.data("url", [url[1]]);
-                } else {
-                    $button.remove();
-                }
+				if (url.length > 1) {
+					$button.data("url", [url[1]]);
+				} else {
+					$button.remove();
+				}
 			} else {
-                if (url.length > 1) {
-                    $button.data("url", [resp.next, url[1]]);
-                }else {
-                    $button.data("url", [resp.next]);
-                }
-            }
+				if (url.length > 1) {
+					$button.data("url", [resp.next, url[1]]);
+				} else {
+					$button.data("url", [resp.next]);
+				}
+			}
 		})
 		.catch((e) => {
 			const statusCode = (e.response?.status || 0).toString() + (e.code ? ` :${e.code}` : "");
@@ -997,49 +1007,48 @@ async function saveM3u($course) {
 			return;
 		}
 
-        console.log(courseData);
-        dialog
-		.showSaveDialog({
-			title: "Save M3U",
-			defaultPath: `${courseName}.m3u`,
-			filters: [{ name: "M3U File (*.m3u)", fileExtension: ["m3u"] }],
-		})
-		.then((result) => {
-			if (!result.canceled) {
-				let filePath = result.filePath;
-				if (!filePath.endsWith(".m3u")) filePath += ".m3u";
+		console.log(courseData);
+		dialog
+			.showSaveDialog({
+				title: "Save M3U",
+				defaultPath: `${courseName}.m3u`,
+				filters: [{ name: "M3U File (*.m3u)", fileExtension: ["m3u"] }],
+			})
+			.then((result) => {
+				if (!result.canceled) {
+					let filePath = result.filePath;
+					if (!filePath.endsWith(".m3u")) filePath += ".m3u";
 
-				let content = "#EXTM3U";
-                let index = 0;
-				courseData.chapters.forEach((chapter) => {
-                    chapter.lectures.forEach((lecture, lec_index) => {
-                        index++;
-                        content += `\n#EXTINF:-1,${lec_index+1}. ${lecture.name}\n${lecture.src}`;
+					let content = "#EXTM3U";
+					let index = 0;
+					courseData.chapters.forEach((chapter) => {
+						chapter.lectures.forEach((lecture, lec_index) => {
+							index++;
+							content += `\n#EXTINF:-1,${lec_index + 1}. ${lecture.name}\n${lecture.src}`;
 
-                        if (lecture.attachments && lecture.attachments.length > 0)
-                          lecture.attachments.forEach((attachment, attach_index) => {
-                            content += `\n#EXTINF:-1,${lec_index+1}.${attach_index+1} ${attachment.name}\n${attachment.src}`;
-                          })
-                    })
-				});
+							if (lecture.attachments && lecture.attachments.length > 0)
+								lecture.attachments.forEach((attachment, attach_index) => {
+									content += `\n#EXTINF:-1,${lec_index + 1}.${attach_index + 1} ${attachment.name}\n${attachment.src}`;
+								});
+						});
+					});
 
-				fs.writeFile(filePath, content, (error) => {
-					if (error) {
-						appendLog("saveM3u_Error", error);
-						return;
-					}
-					console.log("File successfully create!");
-				});
-			}
-		});
-
+					fs.writeFile(filePath, content, (error) => {
+						if (error) {
+							appendLog("saveM3u_Error", error);
+							return;
+						}
+						console.log("File successfully create!");
+					});
+				}
+			});
 	} catch (error) {
 		handleApiError(error, "ESAVE_M3U", null, false);
 		ui.busyOff();
 		$course.find(".prepare-downloading").hide();
 	} finally {
-        ui.showProgress($course, false);
-    }
+		ui.showProgress($course, false);
+	}
 }
 
 async function prepareDownloading($course, subtitle) {
@@ -1413,7 +1422,38 @@ function startDownload($course, courseData, subTitle = "") {
 					const wfDir = downloadDirectory + "/" + courseName + "/" + sanitizedChapterName;
 					fs.writeFile(
 						utils.getSequenceName(lectureIndex + 1, countLectures, attachmentName + ".html", `.${index + 1} `, wfDir).fullPath,
-						attachment.src,
+						`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+body {font-family: 'Udemy Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;line-height: 1.6;color: #29303b;background-color: #fff;max-width: 800px;margin: 0 auto;padding: 2rem;}
+.ud-heading-xxl {font-size: 2.4rem;font-weight: 700;margin-bottom: 1rem;line-height: 1.1;}
+.ud-heading-xl {font-size: 2rem;font-weight: 600;margin-bottom: 1rem;line-height: 1.1;}
+.ud-heading-lg {font-size: 1.8rem;font-weight: 600;margin-bottom: 1rem;line-height: 1.2;}
+.ud-heading-md {font-size: 1.6rem;font-weight: 600;margin-bottom: 1rem;line-height: 1.2;}
+h1,h2,h3,h4,h5,h6 {font-family: 'Udemy Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;color: #1c1d1f;margin: 1.5rem 0 0.5rem;}
+h1 {font-size: 2.4rem;font-weight: 700;}
+h2 {font-size: 2rem;font-weight: 600;}
+h3 {font-size: 1.8rem;font-weight: 600;}
+h4 {font-size: 1.4rem;font-weight: 600;}
+ul,ol {padding-left: 2.4rem;margin-bottom: 1rem;}
+li {margin-bottom: 0.5rem;}
+p {margin-bottom: 1rem;}
+img {max-width: 100%;height: auto;border-radius: 4px;margin: 1.5rem 0;}
+figure {margin: 0;padding: 0;}
+strong,b {font-weight: 600;}
+em,i {font-style: italic;}
+pre,code {font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;background: #f7f9fa;padding: 0.2rem 0.4rem;border-radius: 4px;font-size: 0.9em;}
+pre {background: #f7f9fa;padding: 1rem;border-radius: 8px;overflow-x: auto;margin: 1rem 0;}
+pre code {background: none;padding: 0;}
+.ud-component--base-components--code-block {background: #1c1d1f;border-radius: 8px;margin: 1rem 0;overflow: hidden;}
+.ud-component--base-components--code-block pre {background: #1c1d1f;color: #fff;padding: 1rem;margin: 0;}
+.ud-component--base-components--code-block code {color: #fff;background: #1c1d1f;}
+.text-viewer--content {max-width: 800px;margin: 0 auto;}
+.text-viewer--scroll-container {padding: 2rem;}
+.rt-scaffolding > *:first-child {margin-top: 0;}
+table {border-collapse: collapse;width: 100%;margin: 1rem 0;}
+th,td {border: 1px solid #d1d7dc;padding: 0.8rem;text-align: left;}
+th {background: #f7f9fa;font-weight: 600;}
+blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;color: #6a6f73;}
+</style></head><body><div class="text-viewer--scroll-container"><div class="text-viewer--content rt-scaffolding">${attachment.src}</div></div></body></html>`,
 						function () {
 							index++;
 							if (index == totalAttachments) {
@@ -1628,7 +1668,38 @@ function startDownload($course, courseData, subTitle = "") {
 				const wfDir = `${downloadDirectory}/${courseName}/${sanitizedChapterName}`;
 				fs.writeFile(
 					utils.getSequenceName(lectureIndex + 1, countLectures, sanitizedLectureName + ".html", ". ", wfDir).fullPath,
-					lectureData.src,
+					`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+body {font-family: 'Udemy Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;line-height: 1.6;color: #29303b;background-color: #fff;max-width: 800px;margin: 0 auto;padding: 2rem;}
+.ud-heading-xxl {font-size: 2.4rem;font-weight: 700;margin-bottom: 1rem;line-height: 1.1;}
+.ud-heading-xl {font-size: 2rem;font-weight: 600;margin-bottom: 1rem;line-height: 1.1;}
+.ud-heading-lg {font-size: 1.8rem;font-weight: 600;margin-bottom: 1rem;line-height: 1.2;}
+.ud-heading-md {font-size: 1.6rem;font-weight: 600;margin-bottom: 1rem;line-height: 1.2;}
+h1,h2,h3,h4,h5,h6 {font-family: 'Udemy Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;color: #1c1d1f;margin: 1.5rem 0 0.5rem;}
+h1 {font-size: 2.4rem;font-weight: 700;}
+h2 {font-size: 2rem;font-weight: 600;}
+h3 {font-size: 1.8rem;font-weight: 600;}
+h4 {font-size: 1.4rem;font-weight: 600;}
+ul,ol {padding-left: 2.4rem;margin-bottom: 1rem;}
+li {margin-bottom: 0.5rem;}
+p {margin-bottom: 1rem;}
+img {max-width: 100%;height: auto;border-radius: 4px;margin: 1.5rem 0;}
+figure {margin: 0;padding: 0;}
+strong,b {font-weight: 600;}
+em,i {font-style: italic;}
+pre,code {font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;background: #f7f9fa;padding: 0.2rem 0.4rem;border-radius: 4px;font-size: 0.9em;}
+pre {background: #f7f9fa;padding: 1rem;border-radius: 8px;overflow-x: auto;margin: 1rem 0;}
+pre code {background: none;padding: 0;}
+.ud-component--base-components--code-block {background: #1c1d1f;border-radius: 8px;margin: 1rem 0;overflow: hidden;}
+.ud-component--base-components--code-block pre {background: #1c1d1f;color: #fff;padding: 1rem;margin: 0;}
+.ud-component--base-components--code-block code {color: #fff;background: #1c1d1f;}
+.text-viewer--content {max-width: 800px;margin: 0 auto;}
+.text-viewer--scroll-container {padding: 2rem;}
+.rt-scaffolding > *:first-child {margin-top: 0;}
+table {border-collapse: collapse;width: 100%;margin: 1rem 0;}
+th,td {border: 1px solid #d1d7dc;padding: 0.8rem;text-align: left;}
+th {background: #f7f9fa;font-weight: 600;}
+blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;color: #6a6f73;}
+</style></head><body><div class="text-viewer--scroll-container"><div class="text-viewer--content rt-scaffolding">${lectureData.src}</div></div></body></html>`,
 					function () {
 						if (lectureData.attachments) {
 							lectureData.attachments.sort(utils.dynamicSort("name"));
@@ -1653,6 +1724,20 @@ function startDownload($course, courseData, subTitle = "") {
 
 				// $lecture_name.html(`${courseData["chapters"][chapterIndex].name}\\${lectureName}`);
 				const skipLecture = Settings.download.type == Settings.DownloadType.OnlyAttachments;
+
+				if (!lectureData.src && lectureType === "video") {
+					const externalUrl = `${courseData.courseUrl}/lecture/${lectureData.id || ""}`;
+					fs.writeFile(
+						seqName.fullPath.replace(".mp4", ".html"),
+						`<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${externalUrl}"><title>${lectureName}</title></head><body><p>Redirecting to <a href="${externalUrl}">${lectureName}</a></p></body></html>`,
+						function () {
+							$progressCombined.progress("increment");
+							downloaded++;
+							downloadLecture(chapterIndex, ++lectureIndex, countLectures, sanitizedChapterName);
+						}
+					);
+					return;
+				}
 
 				if (lectureType !== "application/x-mpegurl") {
 					if (fs.existsSync(seqName.fullPath) || skipLecture || lectureData.isEncrypted) {
@@ -1772,14 +1857,14 @@ function askForSubtitle(subtitlesAvailable, totalLectures, defaultSubtitle = "",
 	const totals = {};
 	const languageKeys = {};
 
-    try {
-        if (subtitlesAvailable && Object.keys(subtitlesAvailable).length === 0) {
-            callback("");
-            return;
-        }
-    } catch (error) {
-        return;
-    }
+	try {
+		if (subtitlesAvailable && Object.keys(subtitlesAvailable).length === 0) {
+			callback("");
+			return;
+		}
+	} catch (error) {
+		return;
+	}
 
 	defaultSubtitle = defaultSubtitle.replace(/\s*\[.*?\]/g, "").trim();
 	for (const key in subtitlesAvailable) {

@@ -1,0 +1,21 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>body {font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;line-height: 1.6;color: #29303b;background-color: #fff;max-width: 800px;margin: 0 auto;padding: 2rem;}.ud-heading-xxl {font-size: 2rem;font-weight: 700;margin-bottom: 1rem;}h4 {font-size: 1.4rem;font-weight: 600;margin-top: 2rem;margin-bottom: 1rem;}ul {padding-left: 1.5rem;margin-bottom: 1rem;}li {margin-bottom: 0.5rem;}p {margin-bottom: 1rem;}img {max-width: 100%;height: auto;border-radius: 4px;margin: 1.5rem 0;}figure {margin: 0;padding: 0;}strong, b {font-weight: 600;}em, i {font-style: italic;}</style></head><body><h4>Prompts for editing images</h4><p><br></p><h4>1. Adding and removing elements</h4><p>Template</p><pre class="prettyprint linenums">Using the provided image of [subject], please [add/remove/modify] [element]
+to/from the scene. Ensure the change is [description of how the change should
+integrate].</pre><p>Prompt </p><pre class="prettyprint linenums">"Using the provided image of my cat, please add a small, knitted wizard hat
+on its head. Make it look like it's sitting comfortably and matches the soft
+lighting of the photo."</pre><p><br></p><h4>2. Inpainting (Semantic masking)</h4><p>Template</p><pre class="prettyprint linenums">Using the provided image, change only the [specific element] to [new
+element/description]. Keep everything else in the image exactly the same,
+preserving the original style, lighting, and composition.</pre><p>Prompt </p><pre class="prettyprint linenums">"Using the provided image of a living room, change only the blue sofa to be
+a vintage, brown leather chesterfield sofa. Keep the rest of the room,
+including the pillows on the sofa and the lighting, unchanged."</pre><p><br></p><h4>3. Style transfer</h4><p>Template</p><pre class="prettyprint linenums">Transform the provided photograph of [subject] into the artistic style of [artist/art style]. Preserve the original composition but render it with [description of stylistic elements].</pre><p>Prompt </p><pre class="prettyprint linenums">"Transform the provided photograph of a modern city street at night into the artistic style of Vincent van Gogh's 'Starry Night'. Preserve the original composition of buildings and cars, but render all elements with swirling, impasto brushstrokes and a dramatic palette of deep blues and bright yellows."</pre><p><br></p><h4>4. Advanced composition: Combining multiple images</h4><p>Template</p><pre class="prettyprint linenums">Create a new image by combining the elements from the provided images. Take
+the [element from image 1] and place it with/on the [element from image 2].
+The final image should be a [description of the final scene].</pre><p>Prompt </p><pre class="prettyprint linenums">"Create a professional e-commerce fashion photo. Take the blue floral dress
+from the first image and let the woman from the second image wear it.
+Generate a realistic, full-body shot of the woman wearing the dress, with
+the lighting and shadows adjusted to match the outdoor environment."</pre><p><br></p><h4>5. High-fidelity detail preservation</h4><p>Template</p><pre class="prettyprint linenums">Using the provided images, place [element from image 2] onto [element from
+image 1]. Ensure that the features of [element from image 1] remain
+completely unchanged. The added element should [description of how the
+element should integrate].</pre><p>Prompt </p><pre class="prettyprint linenums">"Take the first image of the woman with brown hair, blue eyes, and a neutral
+expression. Add the logo from the second image onto her black t-shirt.
+Ensure the woman's face and features remain completely unchanged. The logo
+should look like it's naturally printed on the fabric, following the folds
+of the shirt."</pre><p><br></p></body></html>
