@@ -96,7 +96,10 @@ const Settings = (() => {
 		} else {
 			// certifica que exista todas as propriedades
 			Object.keys(DownloadDefaultOptions).forEach((key) => {
-				settings.get(`download.${key}`, DownloadDefaultOptions[key]);
+				const keyPath = `download.${key}`;
+				if (settings.get(keyPath) === undefined) {
+					settings.set(keyPath, DownloadDefaultOptions[key], { prettify: _prettify });
+				}
 			});
 		}
 	}

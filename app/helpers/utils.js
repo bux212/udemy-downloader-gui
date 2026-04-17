@@ -1,5 +1,9 @@
 "use strict";
 
+const fs = require("fs");
+const sanitize = require("sanitize-filename");
+const Settings = require("./settings");
+
 const utils = {
 	isNumber: (n) => {
 		return !isNaN(parseFloat(n)) && isFinite(n);
