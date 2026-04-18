@@ -4,6 +4,8 @@ const { shell, remote, ipcRenderer } = require("electron");
 const { dialog, BrowserWindow } = remote;
 const axios = require("axios");
 const fs = require("fs");
+const path = require("path");
+const { spawn } = require("child_process");
 
 const dialogs = require("dialogs")({});
 
@@ -23,6 +25,7 @@ const HTTP_TIMEOUT = 40000; // 40 segundos
 const loggers = [];
 let repoAccount = "heliomarpm";
 let udemyService;
+let translationQueue = Promise.resolve();
 
 ipcRenderer.on("saveDownloads", () => saveDownloads(true));
 
@@ -156,6 +159,12 @@ $settingsForm.find('input[name="enabledownloadstartend"]').on("change", function
 	$settingsForm.find('input[name="downloadstart"], input[name="downloadend"]').prop("readonly", !this.checked);
 });
 
+function normalizeInt(value, fallback, min = 0, max = Number.MAX_SAFE_INTEGER) {
+	const parsed = Number.parseInt(value, 10);
+	const safeValue = Number.isFinite(parsed) ? parsed : fallback;
+	return Math.max(min, Math.min(max, safeValue));
+}
+
 function loadSettings() {
 	$settingsForm.find('input[name="check-new-version"]').prop("checked", Boolean(Settings.download.checkNewVersion));
 	$settingsForm.find('input[name="auto-start-download"]').prop("checked", Boolean(Settings.download.autoStartDownload));
@@ -170,12 +179,19 @@ function loadSettings() {
 
 	$settingsForm.find('input:radio[name="downloadType"]').filter(`[value="${Settings.download.type}"]`).prop("checked", true);
 	$settingsForm.find('input[name="skipsubtitles"]').prop("checked", Boolean(Settings.download.skipSubtitles));
+	$settingsForm.find('input[name="enable-voice-translation"]').prop("checked", Boolean(Settings.download.enableVoiceTranslation));
 	$settingsForm.find('input[name="autoretry"]').prop("checked", Boolean(Settings.download.autoRetry));
 	$settingsForm.find('input[name="seq-zero-left"]').prop("checked", Boolean(Settings.download.seqZeroLeft));
 
 	$settingsForm.find('input[name="downloadpath"]').val(Settings.downloadDirectory());
 	$settingsForm.find('input[name="downloadstart"]').val(Settings.download.downloadStart);
 	$settingsForm.find('input[name="downloadend"]').val(Settings.download.downloadEnd);
+	$settingsForm
+		.find('input[name="translationStartDelaySec"]')
+		.val(normalizeInt(Settings.download.translationStartDelaySec, Settings.DownloadDefaultOptions.translationStartDelaySec, 0, 120));
+	$settingsForm
+		.find('input[name="translationMaxRetries"]')
+		.val(normalizeInt(Settings.download.translationMaxRetries, Settings.DownloadDefaultOptions.translationMaxRetries, 0, 10));
 
 	const videoQuality = Settings.download.videoQuality;
 	$settingsForm.find('input[name="videoquality"]').val(videoQuality);
@@ -200,6 +216,14 @@ function loadSettings() {
 		.parent(".dropdown")
 		.find(".defaultSubtitle.text")
 		.html(defaultSubtitle || "");
+
+	const translationTargetLang = (Settings.download.translationTargetLang || "ru").toLowerCase();
+	const $translationTargetLangInput = $settingsForm.find('input[name="translationTargetLang"]');
+	const $translationTargetLangDropdown = $translationTargetLangInput.parent(".dropdown");
+	const targetLangLabel =
+		$translationTargetLangDropdown.find(`.item[data-value="${translationTargetLang}"]`).text() || translationTargetLang.toUpperCase();
+	$translationTargetLangInput.val(translationTargetLang);
+	$translationTargetLangDropdown.find(".default.text").html(targetLangLabel);
 }
 
 function saveSettings(formElement) {
@@ -218,6 +242,10 @@ function saveSettings(formElement) {
 	const videoQuality = findInput("videoquality").val() ?? def.videoQuality;
 	const downloadType = findInput("downloadType", ":checked").val() ?? def.type;
 	const skipSubtitles = findInput("skipsubtitles")[0].checked ?? def.skipSubtitles;
+	const enableVoiceTranslation = findInput("enable-voice-translation")[0].checked ?? def.enableVoiceTranslation;
+	const translationTargetLang = (findInput("translationTargetLang").val() || def.translationTargetLang || "ru").toLowerCase();
+	const translationStartDelaySec = normalizeInt(findInput("translationStartDelaySec").val(), def.translationStartDelaySec, 0, 120);
+	const translationMaxRetries = normalizeInt(findInput("translationMaxRetries").val(), def.translationMaxRetries, 0, 10);
 	const seqZeroLeft = findInput("seq-zero-left")[0].checked ?? def.seqZeroLeft;
 	const autoRetry = findInput("autoretry")[0].checked ?? def.autoRetry;
 	const language = findInput("language").val() ?? undefined;
@@ -234,6 +262,10 @@ function saveSettings(formElement) {
 		videoQuality,
 		type: Number(downloadType),
 		skipSubtitles,
+		enableVoiceTranslation,
+		translationTargetLang,
+		translationStartDelaySec,
+		translationMaxRetries,
 		seqZeroLeft,
 		autoRetry,
 	};
@@ -382,6 +414,198 @@ function buildSavedHtmlPage(title, content = "") {
   </main>
 </body>
 </html>`;
+}
+
+function getTranslationConfig() {
+	const cfg = Settings.download || {};
+	const targetLang = (cfg.translationTargetLang || "ru").toLowerCase();
+	const startDelaySec = normalizeInt(cfg.translationStartDelaySec, 7, 0, 120);
+	const maxRetries = normalizeInt(cfg.translationMaxRetries, 3, 0, 10);
+	return {
+		enabled: cfg.enableVoiceTranslation !== false,
+		targetLang,
+		langTag: getLanguageTag(targetLang),
+		startDelayMs: startDelaySec * 1000,
+		maxRetries,
+	};
+}
+
+function getLanguageTag(lang) {
+	const languageTags = {
+		ru: "RUS",
+		en: "ENG",
+		kk: "KAZ",
+		de: "DEU",
+		es: "ESP",
+		fr: "FRA",
+		it: "ITA",
+		pt: "POR",
+		tr: "TUR",
+		uk: "UKR",
+		pl: "POL",
+		hi: "HIN",
+		ja: "JPN",
+		ko: "KOR",
+		zh: "CHN",
+	};
+
+	if (!lang) {
+		return "RUS";
+	}
+
+	const normalized = String(lang).toLowerCase().split(/[-_]/)[0];
+	if (languageTags[normalized]) {
+		return languageTags[normalized];
+	}
+
+	const fallback = normalized
+		.replace(/[^a-z0-9]/g, "")
+		.slice(0, 3)
+		.toUpperCase();
+	return fallback || "RUS";
+}
+
+function queueTranslation(task) {
+	translationQueue = translationQueue
+		.then(() => task())
+		.catch((error) => {
+			appendLog("Translation queue error", error);
+		});
+}
+
+function runVotCli(args, meta = "") {
+	return new Promise((resolve, reject) => {
+		const cliCommand = process.platform === "win32" ? "vot-cli.cmd" : "vot-cli";
+		const child = spawn(cliCommand, args, { windowsHide: true });
+
+		let stderr = "";
+		child.stderr.on("data", (data) => {
+			stderr += data.toString();
+		});
+
+		child.on("error", (error) => reject(error));
+		child.on("close", (code) => {
+			if (code === 0) {
+				resolve();
+				return;
+			}
+
+			reject(utils.newError("EVOT_CLI", `${meta} (code ${code}) ${stderr.trim()}`));
+		});
+	});
+}
+
+async function runVotCliWithRetry(args, meta, maxRetries) {
+	let lastError;
+
+	for (let attempt = 0; attempt <= maxRetries; attempt++) {
+		try {
+			await runVotCli(args, meta);
+			return;
+		} catch (error) {
+			lastError = error;
+			if (attempt === maxRetries) {
+				break;
+			}
+
+			const delayMs = (attempt + 1) * 5000;
+			appendLog("Translation retry", `${meta}. Attempt ${attempt + 2}/${maxRetries + 1}. Wait ${delayMs / 1000}s`);
+			await utils.sleep(delayMs);
+		}
+	}
+
+	throw lastError;
+}
+
+function moveNewestArtifact(outputDir, extension, sinceTs, targetPath) {
+	const files = fs
+		.readdirSync(outputDir)
+		.filter((name) => path.extname(name).toLowerCase() === extension)
+		.map((name) => {
+			const fullPath = path.join(outputDir, name);
+			const stat = fs.statSync(fullPath);
+			return { fullPath, mtimeMs: stat.mtimeMs };
+		})
+		.filter((item) => item.mtimeMs >= sinceTs)
+		.sort((a, b) => b.mtimeMs - a.mtimeMs);
+
+	if (!files.length) {
+		return false;
+	}
+
+	const newest = files[0].fullPath;
+	if (path.normalize(newest) === path.normalize(targetPath)) {
+		return true;
+	}
+
+	if (fs.existsSync(targetPath)) {
+		fs.unlinkSync(targetPath);
+	}
+
+	fs.renameSync(newest, targetPath);
+	return true;
+}
+
+function ensureTranslatedArtifact(outputDir, extension, targetPath, sinceTs, label) {
+	if (fs.existsSync(targetPath)) {
+		return;
+	}
+
+	const moved = moveNewestArtifact(outputDir, extension, sinceTs, targetPath);
+	if (!moved || !fs.existsSync(targetPath)) {
+		throw utils.newError("EVOT_OUTPUT", `Unable to find translated ${label} file in ${outputDir}`);
+	}
+}
+
+function queueVideoTranslation(videoFilePath, sourceUrl) {
+	const cfg = getTranslationConfig();
+	if (!cfg.enabled || !sourceUrl || !videoFilePath || !fs.existsSync(videoFilePath)) {
+		return;
+	}
+
+	const outputDir = path.dirname(videoFilePath);
+	const baseName = path.basename(videoFilePath, path.extname(videoFilePath));
+	const translatedBaseName = `${baseName}(${cfg.langTag})`;
+	const mp3Target = path.join(outputDir, `${translatedBaseName}.mp3`);
+	const srtTarget = path.join(outputDir, `${translatedBaseName}.srt`);
+
+	if (fs.existsSync(mp3Target) && fs.existsSync(srtTarget)) {
+		return;
+	}
+
+	queueTranslation(async () => {
+		try {
+			appendLog("Translation queued", translatedBaseName);
+			appendLog("Translation output dir", outputDir);
+			if (cfg.startDelayMs > 0) {
+				await utils.sleep(cfg.startDelayMs);
+			}
+
+			const mp3StartedAt = Date.now();
+
+			await runVotCliWithRetry(
+				["--output", outputDir, "--output-file", `${translatedBaseName}.mp3`, "--reslang", cfg.targetLang, sourceUrl],
+				`audio ${translatedBaseName}`,
+				cfg.maxRetries
+			);
+
+			ensureTranslatedArtifact(outputDir, ".mp3", mp3Target, mp3StartedAt, "audio");
+
+			const srtStartedAt = Date.now();
+
+			await runVotCliWithRetry(
+				["--subs-srt", "--output", outputDir, "--output-file", `${translatedBaseName}.srt`, "--reslang", cfg.targetLang, sourceUrl],
+				`subtitle ${translatedBaseName}`,
+				cfg.maxRetries
+			);
+
+			ensureTranslatedArtifact(outputDir, ".srt", srtTarget, srtStartedAt, "subtitle");
+
+			appendLog("Translation saved", `${translatedBaseName}.mp3 / ${translatedBaseName}.srt`);
+		} catch (error) {
+			appendLog("Translation failed", error, `Source: ${sourceUrl}`);
+		}
+	});
 }
 
 async function checkUpdate(account, silent = false) {
@@ -1889,6 +2113,12 @@ function startDownload($course, courseData, subTitle = "") {
 
 				function endDownloadAttachment() {
 					clearInterval(timerDownloader);
+
+					if (path.extname(seqName.fullPath).toLowerCase() === ".mp4" && !lectureData.isEncrypted && fs.existsSync(seqName.fullPath)) {
+						const sourceLectureUrl = lectureData.id ? `${courseData.courseUrl}/lecture/${lectureData.id}` : lectureData.src;
+						queueVideoTranslation(seqName.fullPath, sourceLectureUrl);
+					}
+
 					if (courseData.chapters[chapterIndex].lectures[lectureIndex].subtitles) {
 						downloadSubtitle();
 					} else {

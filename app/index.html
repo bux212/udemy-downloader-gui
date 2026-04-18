@@ -1,67 +1,80 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';" />
 
-<head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
+		<!-- TITULO ADICIONADO VIA INDEX.JS -->
+		<!-- <title>Udeler | Udemy Course Downloader</title> -->
+		<link rel="stylesheet" href="./assets/semantic-ui/css/semantic.min.css" />
+		<link rel="stylesheet" href="./css/style.css" />
 
-  <!-- TITULO ADICIONADO VIA INDEX.JS -->
-  <!-- <title>Udeler | Udemy Course Downloader</title> -->
-  <link rel="stylesheet" href="./assets/semantic-ui/css/semantic.min.css" />
-  <link rel="stylesheet" href="./css/style.css" />
+		<script src="./renderer.js"></script>
+	</head>
 
-  <script src="./renderer.js"></script>
-</head>
+	<body>
+		<div class="ui basic subtitle modal">
+			<div class="ui icon header">
+				<i class="closed captioning icon"></i>
+				<script>
+					translateWrite("Select Subtitle");
+				</script>
+			</div>
+			<div class="content">
+				<div class="ui fluid selection dropdown">
+					<input type="hidden" name="subtitle" />
+					<i class="dropdown icon"></i>
+					<div class="default text">
+						<script>
+							translateWrite("Subtitle Language");
+						</script>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="ui basic update-available modal">
+			<div class="ui icon header">
+				<i class="gift icon"></i>
+				<script>
+					translateWrite("New Update Available");
+				</script>
+			</div>
+			<div class="content">
+				<p>
+					<center>
+						<script>
+							translateWrite(
+								"A new version of Udeler is available. You can download the latest version from github releases page"
+							);
+						</script>
+					</center>
+				</p>
+			</div>
+			<div class="actions" style="text-align: center">
+				<div class="ui red cancel inverted button">
+					<i class="remove icon"></i>
+					<script>
+						translateWrite("Cancel");
+					</script>
+				</div>
+				<div class="ui green ok inverted download-update button">
+					<i class="checkmark icon"></i>
+					<script>
+						translateWrite("Download");
+					</script>
+				</div>
+			</div>
+		</div>
 
-<body>
-  <div class="ui basic subtitle modal">
-    <div class="ui icon header">
-      <i class="closed captioning icon"></i>
-      <script>translateWrite("Select Subtitle")</script>
-    </div>
-    <div class="content">
-      <div class="ui fluid selection dropdown">
-        <input type="hidden" name="subtitle" />
-        <i class="dropdown icon"></i>
-        <div class="default text">
-          <script>translateWrite("Subtitle Language")</script>
-        </div>
-      </div>
-    </div>
-  </div>
-  <div class="ui basic update-available modal">
-    <div class="ui icon header">
-      <i class="gift icon"></i>
-      <script>translateWrite("New Update Available")</script>
-    </div>
-    <div class="content">
-      <p>
-        <center>
-          <script>translateWrite("A new version of Udeler is available. You can download the latest version from github releases page")</script>
-        </center>
-      </p>
-    </div>
-    <div class="actions" style="text-align: center;">
-      <div class="ui red cancel inverted button">
-        <i class="remove icon"></i>
-        <script>translateWrite("Cancel")</script>
-      </div>
-      <div class="ui green ok inverted download-update button">
-        <i class="checkmark icon"></i>
-        <script>translateWrite("Download")</script>
-      </div>
-    </div>
-  </div>
+		<script>
+			const $ = (jQuery = require("jquery"));
+		</script>
+		<script src="./assets/semantic-ui/js/semantic.min.js"></script>
 
-  <script>
-    const $ = (jQuery = require("jquery"));
-  </script>
-  <script src="./assets/semantic-ui/js/semantic.min.js"></script>
-
-  <script type="text/javascript">
-    var template = `
+		<script type="text/javascript">
+			var template = `
           <div class="ui center aligned login grid">
             <div class="ui login dimmer inverted">
               <div class="ui big text loader">
@@ -328,6 +341,47 @@
                     </div>
                     <div class="field">
                       <div class="ui toggle checkbox">
+                        <input type="checkbox" name="enable-voice-translation">
+                        <label>Enable Voice Translation (MVP)</label>
+                      </div>
+                    </div>
+                    <div class="field">
+                      <label>Translation Target Language</label>
+                      <div class="ui fluid search selection translationTargetLang dropdown">
+                        <input type="hidden" name="translationTargetLang">
+                        <i class="dropdown icon"></i>
+                        <div class="default text"></div>
+                        <div class="menu">
+                          <div class="item" data-value="ru">Russian (RUS)</div>
+                          <div class="item" data-value="en">English (ENG)</div>
+                          <div class="item" data-value="kk">Kazakh (KAZ)</div>
+                          <div class="item" data-value="de">German (DEU)</div>
+                          <div class="item" data-value="es">Spanish (ESP)</div>
+                          <div class="item" data-value="fr">French (FRA)</div>
+                          <div class="item" data-value="it">Italian (ITA)</div>
+                          <div class="item" data-value="pt">Portuguese (POR)</div>
+                          <div class="item" data-value="tr">Turkish (TUR)</div>
+                          <div class="item" data-value="uk">Ukrainian (UKR)</div>
+                          <div class="item" data-value="pl">Polish (POL)</div>
+                          <div class="item" data-value="hi">Hindi (HIN)</div>
+                          <div class="item" data-value="ja">Japanese (JPN)</div>
+                          <div class="item" data-value="ko">Korean (KOR)</div>
+                          <div class="item" data-value="zh">Chinese (CHN)</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="two unstackable fields">
+                      <div class="field">
+                        <label>Translation Start Delay (sec)</label>
+                        <input type="number" min="0" max="120" name="translationStartDelaySec" placeholder="7">
+                      </div>
+                      <div class="field">
+                        <label>Translation Retries</label>
+                        <input type="number" min="0" max="10" name="translationMaxRetries" placeholder="3">
+                      </div>
+                    </div>
+                    <div class="field">
+                      <div class="ui toggle checkbox">
                         <input type="checkbox" name="seq-zero-left">
                         <label>${translate("Enumerate download with zero left")}</label>
                       </div>
@@ -527,34 +581,26 @@
           </div>
       `;
 
-    $("body").prepend(template);
+			$("body").prepend(template);
 
-    if (Gettings.language == "Arabic") {
-      $(".ui.dashboard .content")
-        .css("margin-left", "10px")
-        .css("width", "80%");
-    }
+			if (Gettings.language == "Arabic") {
+				$(".ui.dashboard .content").css("margin-left", "10px").css("width", "80%");
+			}
 
-    var $languageDropdown = $(".language.dropdown .menu");
-    $.getJSON("locale/meta.json", function (data) {
-      $.each(data, function (key) {
-        $languageDropdown.append(
-          `<div class="item" data-value=${key}>${key}</div>`
-        );
-      });
-    });
+			var $languageDropdown = $(".language.dropdown .menu");
+			$.getJSON("locale/meta.json", function (data) {
+				$.each(data, function (key) {
+					$languageDropdown.append(`<div class="item" data-value=${key}>${key}</div>`);
+				});
+			});
 
-    var $defaultSubtitleDropdown = $(".defaultSubtitle.dropdown .menu");
-    $.getJSON("locale/meta.json", function (data) {
-      $.each(data, function (key) {
-        $defaultSubtitleDropdown.append(
-          `<div class="item" data-value=${key}>${key}</div>`
-        );
-      });
-    });
-
-  </script>
-  <script src="./app.js"></script>
-</body>
-
+			var $defaultSubtitleDropdown = $(".defaultSubtitle.dropdown .menu");
+			$.getJSON("locale/meta.json", function (data) {
+				$.each(data, function (key) {
+					$defaultSubtitleDropdown.append(`<div class="item" data-value=${key}>${key}</div>`);
+				});
+			});
+		</script>
+		<script src="./app.js"></script>
+	</body>
 </html>
