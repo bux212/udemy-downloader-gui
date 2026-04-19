@@ -13,7 +13,8 @@ if (isDebug) {
     process.env.DEBUG_MODE = true;
     require('electron-reload')(__dirname, {
         electron: join(__dirname, 'node_modules', '.bin', 'electron'),
-        hardResetMethod: 'exit'
+        hardResetMethod: 'exit',
+        ignored: /udeler\.log|node_modules/
     });
 }
 

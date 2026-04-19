@@ -297,7 +297,7 @@ async function checkLogin(alertExpired = true) {
 
 			if (!userContext.header.isLoggedIn) {
 				if (alertExpired) {
-					showAlert(Settings.accessToken, translate("Token expired"));
+					showAlert(translate("Your access token has expired. Please log in again."), translate("Token expired"));
 				}
 				ui.resetToLogin();
 				return;
@@ -1610,8 +1610,12 @@ blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;col
 			}
 
 			// read highest quality playlist
-			async function getPlaylist(url) {
-				const playlist = await getFile(url, false);
+			async function getPlaylist(url, baseUrl = null) {
+				// Resolve URL against base if relative
+				const resolvedUrl = baseUrl && !url.startsWith('http') ? new URL(url, baseUrl).href : url;
+				const currentBaseUrl = resolvedUrl.substring(0, resolvedUrl.lastIndexOf('/') + 1);
+
+				const playlist = await getFile(resolvedUrl, false);
 
 				if (!playlist) return [];
 
@@ -1619,7 +1623,11 @@ blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;col
 				const urlList = [];
 
 				lines.forEach((line) => {
-					if (line.toLowerCase().indexOf(".ts") > -1) urlList.push(line);
+					// Resolve relative .ts URLs against base
+					if (line.toLowerCase().indexOf(".ts") > -1) {
+						const resolvedTs = line.startsWith('http') ? line : new URL(line, currentBaseUrl).href;
+						urlList.push(resolvedTs);
+					}
 				});
 
 				if (urlList.length == 0 && playlist.indexOf("m3u8") > 0) {
@@ -1652,7 +1660,7 @@ blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;col
 
 					if (maximumQuality > 0) {
 						setLabelQuality(maximumQuality);
-						return await getPlaylist(maximumQualityPlaylistUrl);
+						return await getPlaylist(maximumQualityPlaylistUrl, currentBaseUrl);
 					}
 				}
 
@@ -1887,7 +1895,7 @@ function askForSubtitle(subtitlesAvailable, totalLectures, defaultSubtitle = "",
 	}
 
 	if (languages.length === 1) {
-		callback(languageKeys[0]);
+		callback(languageKeys[languages[0]].join("|"));
 		return;
 	} else if (languages.length === 0) {
 		return;
@@ -1971,10 +1979,18 @@ function appendLog(title, error, additionalDescription = "") {
 	);
 
 	// item added to array to save txt file
-	loggers.unshift({
+	const logEntry = {
 		datetime: new Date().toLocaleString(),
 		title,
 		description,
+	};
+	loggers.unshift(logEntry);
+
+	// Write to log file in app directory
+	const logFilePath = require('path').join(__dirname, '..', 'udeler.log');
+	const logLine = `[${logEntry.datetime}] ${title}: ${description}\n`;
+	fs.appendFile(logFilePath, logLine, (err) => {
+		if (err) console.error('Failed to write to log file:', err);
 	});
 
 	// increment badge
@@ -2081,4 +2097,8 @@ process.on("unhandledRejection", (error) => {
 });
 
 // console.table(getAllDownloadsHistory());
+
+// Initial log entry to confirm logging is working
+appendLog("App Started", `Udeler v${require('../package.json').version} - ${new Date().toISOString()}`);
+
 checkLogin(false);
