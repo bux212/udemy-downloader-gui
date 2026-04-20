@@ -1729,11 +1729,33 @@ blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;col
 						return;
 					}
 
-					if (fs.existsSync(seqName.fullPath + ".mtd") && !fs.statSync(seqName.fullPath + ".mtd").size) {
-						fs.unlinkSync(seqName.fullPath + ".mtd");
+					const mtdPath = seqName.fullPath + ".mtd";
+					if (fs.existsSync(mtdPath)) {
+						try {
+							const mtdSize = fs.statSync(mtdPath).size;
+							if (!mtdSize) {
+								fs.unlinkSync(mtdPath);
+							}
+						} catch (e) {
+							fs.unlinkSync(mtdPath);
+						}
 					}
 
-					if (fs.existsSync(seqName.fullPath + ".mtd")) {
+					if (!lectureData.src || lectureData.src.trim() === "") {
+						appendLog("SKIP_EMPTY_SRC", `Lecture: ${lectureData.id || "?"}|${lectureName}`, `Path: ${seqName.fullPath}`);
+						fs.writeFile(
+							seqName.fullPath.replace(".mp4", ".html"),
+							`<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${courseData.courseUrl}/lecture/${lectureData.id || ""}"><title>${lectureName}</title></head><body><p>No video source available</p></body></html>`,
+							function () {
+								$progressCombined.progress("increment");
+								downloaded++;
+								downloadLecture(chapterIndex, ++lectureIndex, countLectures, sanitizedChapterName);
+							}
+						);
+						return;
+					}
+
+					if (fs.existsSync(mtdPath)) {
 						var dl = downloader.resumeDownload(seqName.fullPath);
 					} else {
 						var dl = downloader.download(lectureData.src, seqName.fullPath);
