@@ -44,9 +44,9 @@
     "sanitize-filename": "^1.6.3"
   },
   "devDependencies": {
-    "electron": "11.5.0",
+    "electron": "^29.4.6",
     "electron-builder": "^25.1.8",
-    "electron-reload": "^2.0.0-alpha.1",
+    "electron-reloader": "^1.2.3",
     "gh_deploy": "github:heliomarpm/gh_deploy",
     "prettier": "^3.4.2"
   },

@@ -1,9 +1,9 @@
 "use strict";
 
-const { shell, remote, ipcRenderer } = require("electron");
-const { dialog, BrowserWindow } = remote;
+const { shell } = require("electron");
 const axios = require("axios");
 const fs = require("fs");
+const path = require("path");
 
 const dialogs = require("dialogs")({});
 
@@ -11,7 +11,6 @@ const sanitize = require("sanitize-filename");
 const vtt2srt = require("node-vtt-to-srt");
 const Downloader = require("mt-files-downloader");
 const https = require("https");
-const cookie = require("cookie");
 
 const { Settings, ui, utils } = require("./helpers");
 const { default: UdemyService } = require("./core/services");
@@ -24,7 +23,7 @@ const loggers = [];
 let repoAccount = "heliomarpm";
 let udemyService;
 
-ipcRenderer.on("saveDownloads", () => saveDownloads(true));
+window.electronAPI.onSaveDownloads(() => saveDownloads(true));
 
 // external browser
 // $(document).on('click', 'a[href^="http"]', (event) => {
@@ -243,19 +242,16 @@ function saveSettings(formElement) {
 	showAlert(translate("Settings Saved"));
 }
 
-function selectDownloadPath() {
-	const path = dialog.showOpenDialogSync({
-		properties: ["openDirectory"],
-	});
+async function selectDownloadPath() {
+	const result = await window.electronAPI.openDirectory();
 
-	if (path && path[0]) {
-		fs.access(path[0], fs.constants.R_OK && fs.constants.W_OK, function (err) {
-			if (err) {
-				showAlert(translate("Cannot select this folder"));
-			} else {
-				$settingsForm.find('input[name="downloadpath"]').val(path[0]);
-			}
-		});
+	if (result && result[0]) {
+		const accessible = await window.electronAPI.access(result[0], fs.constants.R_OK | fs.constants.W_OK);
+		if (!accessible) {
+			showAlert(translate("Cannot select this folder"));
+		} else {
+			$settingsForm.find('input[name="downloadpath"]').val(result[0]);
+		}
 	}
 }
 
@@ -327,7 +323,7 @@ async function checkLogin(alertExpired = true) {
 	}
 }
 
-function loginWithUdemy() {
+async function loginWithUdemy() {
 	const $formLogin = $(".ui.login .form");
 
 	if ($formLogin.find('input[name="business"]').is(":checked")) {
@@ -339,41 +335,13 @@ function loginWithUdemy() {
 		ui.$subdomainField.val(null);
 	}
 
-	const parent = remote.getCurrentWindow();
-	const dimensions = parent.getSize();
-	const session = remote.session;
-	let udemyLoginWindow = new BrowserWindow({
-		width: dimensions[0] - 100,
-		height: dimensions[1] - 100,
-		parent,
-		modal: true,
-	});
-
-	session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ["*://*.udemy.com/*"] }, function (request, callback) {
-		const token = request.requestHeaders.Authorization
-			? request.requestHeaders.Authorization.split(" ")[1]
-			: cookie.parse(request.requestHeaders.Cookie || "").access_token;
-
-		if (token) {
-			Settings.accessToken = token;
-			Settings.subDomain = new URL(request.url).hostname.split(".")[0];
-
-			udemyLoginWindow.destroy();
-			session.defaultSession.clearStorageData();
-			session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ["*://*.udemy.com/*"] }, function (request, callback) {
-				callback({ requestHeaders: request.requestHeaders });
-			});
-			checkLogin();
-		}
-		callback({ requestHeaders: request.requestHeaders });
-	});
-
 	Settings.subDomain = ui.$subdomainField.val() ?? "www";
 
-	if (ui.$subdomainField.val()) {
-		udemyLoginWindow.loadURL(`https://${Settings.subDomain}.udemy.com`);
-	} else {
-		udemyLoginWindow.loadURL("https://www.udemy.com/join/login-popup");
+	const result = await window.electronAPI.openLoginWindow(Settings.subDomain);
+	if (result && result.token) {
+		Settings.accessToken = result.token;
+		Settings.subDomain = result.subdomain;
+		checkLogin();
 	}
 }
 
@@ -973,7 +941,7 @@ function saveDownloads(shouldQuitApp) {
 	});
 
 	if (shouldQuitApp) {
-		ipcRenderer.send("quitApp");
+		window.electronAPI.quitApp();
 	} else {
 		ui.busySavingHistory(false);
 	}
@@ -1008,7 +976,7 @@ async function saveM3u($course) {
 		}
 
 		console.log(courseData);
-		dialog
+		window.electronAPI
 			.showSaveDialog({
 				title: "Save M3U",
 				defaultPath: `${courseName}.m3u`,
@@ -1420,7 +1388,7 @@ function startDownload($course, courseData, subTitle = "") {
 
 				if (["article", "url"].includes(attachment.type)) {
 					const wfDir = downloadDirectory + "/" + courseName + "/" + sanitizedChapterName;
-					fs.writeFile(
+					window.electronAPI.writeFile(
 						utils.getSequenceName(lectureIndex + 1, countLectures, attachmentName + ".html", `.${index + 1} `, wfDir).fullPath,
 						`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 body {font-family: 'Udemy Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;line-height: 1.6;color: #29303b;background-color: #fff;max-width: 800px;margin: 0 auto;padding: 2rem;}
@@ -1464,7 +1432,7 @@ blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;col
 								downloadAttachments(index, totalAttachments);
 							}
 						}
-					);
+					).catch((err) => appendLog("downloadAttachments_error", err));
 				} else {
 					let fileExtension = attachment.src.split("/").pop().split("?").shift().split(".").pop();
 					fileExtension = attachment.name.split(".").pop() == fileExtension ? "" : "." + fileExtension;
@@ -1987,7 +1955,7 @@ function appendLog(title, error, additionalDescription = "") {
 	loggers.unshift(logEntry);
 
 	// Write to log file in app directory
-	const logFilePath = require('path').join(__dirname, '..', 'udeler.log');
+	const logFilePath = path.join(__dirname, '..', 'udeler.log');
 	const logLine = `[${logEntry.datetime}] ${title}: ${description}\n`;
 	fs.appendFile(logFilePath, logLine, (err) => {
 		if (err) console.error('Failed to write to log file:', err);
@@ -2011,7 +1979,7 @@ function appendLog(title, error, additionalDescription = "") {
 function saveLogFile() {
 	if (loggers.length == 0) return;
 
-	dialog
+	window.electronAPI
 		.showSaveDialog({
 			title: "Udeler Log",
 			defaultPath: "udeler_logger.txt",
@@ -2074,7 +2042,7 @@ function handleApiError(error, errorName, courseName = null, triggerThrow = true
 
 function showAlertError(message, title = "") {
 	title = title ? `.:: ${title} ::.` : ".:: Error ::.";
-	dialog.showErrorBox(title, message);
+	window.electronAPI.showErrorBox(title, message);
 }
 
 function showAlert(message, title = "") {

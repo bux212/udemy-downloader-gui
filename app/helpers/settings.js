@@ -50,9 +50,12 @@
 const Settings = (() => {
 	"use strict";
 
-	const settings = require("electron-settings");
 	const path = require("path");
+	const fs = require("fs");
 	const { homedir } = require("os");
+
+	// Use IPC to access settings through main process
+	const useIPC = false; // Disable IPC - use direct file access with nodeIntegration
 
 	/** @type {DownloadTypeSetting} */
 	const DownloadType = Object.freeze({
@@ -84,6 +87,82 @@ const Settings = (() => {
 
 	let _language = null;
 	let _prettify = false;
+	let settingsCache = {};
+	let settingsFilePath = null;
+
+	// Settings file path - use homedir directly (synchronous)
+	function getSettingsFilePath() {
+		if (!settingsFilePath) {
+			const homePath = homedir();
+			settingsFilePath = path.join(homePath, 'AppData', 'Roaming', 'Udeler', 'settings.json');
+		}
+		return settingsFilePath;
+	}
+
+	function readSettings() {
+		try {
+			const filePath = getSettingsFilePath();
+			if (fs.existsSync(filePath)) {
+				const data = fs.readFileSync(filePath, 'utf8');
+				return JSON.parse(data);
+			}
+		} catch (error) {
+			console.error('Error reading settings:', error);
+		}
+		return {};
+	}
+
+	function writeSettings(data) {
+		try {
+			const filePath = getSettingsFilePath();
+			fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+		} catch (error) {
+			console.error('Error writing settings:', error);
+		}
+	}
+
+	function getValueAtPath(obj, path) {
+		const keys = path.split('.');
+		let current = obj;
+		for (const key of keys) {
+			if (current === undefined || current === null) return undefined;
+			current = current[key];
+		}
+		return current;
+	}
+
+	function setValueAtPath(obj, path, value) {
+		const keys = path.split('.');
+		let current = obj;
+		for (let i = 0; i < keys.length - 1; i++) {
+			if (!(keys[i] in current)) {
+				current[keys[i]] = {};
+			}
+			current = current[keys[i]];
+		}
+		current[keys[keys.length - 1]] = value;
+	}
+
+	const settings = {
+		get: (keyPath, defaultValue = undefined) => {
+			if (useIPC && window.electronAPI && window.electronAPI.settingsGet) {
+				return window.electronAPI.settingsGet(keyPath, defaultValue);
+			}
+			// Fallback to direct file access
+			const allSettings = readSettings();
+			const value = getValueAtPath(allSettings, keyPath);
+			return value !== undefined ? value : defaultValue;
+		},
+		set: (keyPath, value) => {
+			if (useIPC && window.electronAPI && window.electronAPI.settingsSet) {
+				return window.electronAPI.settingsSet(keyPath, value);
+			}
+			// Fallback to direct file access
+			const allSettings = readSettings();
+			setValueAtPath(allSettings, keyPath, value);
+			writeSettings(allSettings);
+		}
+	};
 
 	/**
 	 * Ensures all default keys are set in the settings
@@ -93,6 +172,10 @@ const Settings = (() => {
 	function ensureDefaultKeys() {
 		if (!settings.get("language")) {
 			settings.set("language", getLanguage());
+		}
+
+		if (!settings.get("subdomain")) {
+			settings.set("subdomain", "www");
 		}
 
 		if (!settings.get("download")) {
