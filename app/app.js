@@ -655,11 +655,19 @@ async function fetchCourseContent(courseId, courseName, courseUrl) {
 				});
 				courseData.totalLectures++;
 			} else {
-				const lecture = { type, name: item.title, src: "", quality: Settings.download.videoQuality, isEncrypted: false };
+				// === ИЗМЕНЕНИЕ: Добавлен id в lecture object ===
+				const lecture = { id: item.id, type, name: item.title, src: "", quality: Settings.download.videoQuality, isEncrypted: false };
 				const { asset, supplementary_assets } = item;
 
 				if (!asset) {
-					appendLog("No asset found", `Course: ${courseId}|${courseName}`, `Lecture: ${item.id}|${item.title}`);
+					// === ИЗМЕНЕНИЕ: Для roleplay/interview - создаём HTML-заглушку вместо попытки скачать ===
+					const isRoleplay = type === "roleplay";
+					const displayName = isRoleplay ? `${item.title} (Ролевая игра)` : item.title;
+					lecture.type = "url";
+					lecture.quality = "NotFound";
+					lecture.name = displayName;
+					lecture.src = `<script type="text/javascript">window.location = "${courseUrl}/lecture/${item.id}";</script>`;
+					appendLog("Skipped non-downloadable lesson", `Course: ${courseId}|${courseName}`, `Lecture: ${item.id}|${displayName}`);
 					chapterData.lectures.push(lecture);
 					courseData.totalLectures++;
 					return;
