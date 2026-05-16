@@ -3,6 +3,7 @@
 const fs = require("fs");
 const sanitize = require("sanitize-filename");
 const Settings = require("./settings");
+const pkg = require("../../package.json");
 
 const utils = {
 	isNumber: (n) => {
@@ -161,6 +162,71 @@ const utils = {
 		const keys = Object.keys(obj).map(Number); // Converte as chaves para números
 		const closestKey = keys.reduce((prev, curr) => (Math.abs(curr - target) < Math.abs(prev - target) ? curr : prev));
 		return { key: closestKey, value: obj[closestKey] };
+	},
+
+	isRoleplayLecture(item) {
+		const title = String(item?.title || "");
+		return /roleplay|ролевая игра/i.test(title);
+	},
+
+	getLectureUdemyUrl(courseUrl, lectureId) {
+		const base = String(courseUrl || "").replace(/\/+$/, "");
+		return `${base}/lecture/${lectureId}`;
+	},
+
+	buildLectureStubHtml(courseUrl, lectureId, title, reason) {
+		const href = utils.getLectureUdemyUrl(courseUrl, lectureId);
+		const safeTitle = String(title || "").replace(/</g, "&lt;");
+		const safeReason = String(reason || "").replace(/</g, "&lt;");
+		return `<p><strong>${safeTitle}</strong></p><p>${safeReason}</p><p><a href="${href}" target="_blank" rel="noopener noreferrer">Open on Udemy</a></p>`;
+	},
+
+	applyNoDownloadLectureStub(lecture, item, courseUrl) {
+		const reason = utils.isRoleplayLecture(item)
+			? "This is an interactive roleplay lecture. It cannot be downloaded as a video file. Open it on Udemy."
+			: "This lecture has no downloadable media in the course API. Open it on Udemy.";
+
+		lecture.id = item.id;
+		lecture.type = "url";
+		lecture.quality = utils.isRoleplayLecture(item) ? "Roleplay" : "Interactive";
+		lecture.src = utils.buildLectureStubHtml(courseUrl, item.id, item.title, reason);
+	},
+
+	/** @returns {{ owner: string, repo: string, releasesUrl: string }} */
+	getGithubUpdateTarget() {
+		const url = pkg.repository?.url || pkg.repository || "";
+		const match = String(url).match(/github\.com[/:]([^/]+)\/([^/.]+?)(?:\.git)?\/?$/i);
+		const owner = (pkg.vars?.updateGithubOwner || match?.[1] || "heliomarpm").trim();
+		const repo = (pkg.vars?.updateGithubRepo || match?.[2] || "udemy-downloader-gui").trim();
+		return {
+			owner,
+			repo,
+			releasesUrl: `https://github.com/${owner}/${repo}/releases/latest`,
+		};
+	},
+
+	isUpdateCheckEnabledInPackage() {
+		return pkg.vars?.updateCheckEnabled !== false;
+	},
+
+	parseVersionParts(version) {
+		return String(version || "")
+			.replace(/^v/i, "")
+			.split(".")
+			.map((part) => parseInt(part, 10) || 0);
+	},
+
+	isRemoteVersionNewer(remoteTag, localVersion) {
+		const remote = utils.parseVersionParts(remoteTag);
+		const local = utils.parseVersionParts(localVersion);
+		const length = Math.max(remote.length, local.length);
+
+		for (let i = 0; i < length; i++) {
+			const diff = (remote[i] || 0) - (local[i] || 0);
+			if (diff > 0) return true;
+			if (diff < 0) return false;
+		}
+		return false;
 	},
 };
 

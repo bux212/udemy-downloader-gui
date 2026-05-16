@@ -20,7 +20,9 @@ const MSG_DRM_PROTECTED = translate("Contains DRM protection and cannot be downl
 const HTTP_TIMEOUT = 40000; // 40 segundos
 
 const loggers = [];
-let repoAccount = "heliomarpm";
+const githubUpdateTarget = utils.getGithubUpdateTarget();
+let repoAccount = githubUpdateTarget.owner;
+const githubUpdateRepo = githubUpdateTarget.repo;
 let udemyService;
 
 window.electronAPI.onSaveDownloads(() => saveDownloads(true));
@@ -99,7 +101,7 @@ $(".ui.dashboard .content").on("click", ".open-dir", function () {
 	shell.openPath(pathDownloaded);
 });
 
-$(".ui.dashboard .content").on("click", ".check-updates", () => checkUpdate("heliomarpm"));
+$(".ui.dashboard .content").on("click", ".check-updates", () => checkUpdate(githubUpdateTarget.owner));
 
 $(".ui.dashboard .content").on("click", ".check-updates-original", () => checkUpdate("FaisalUmair"));
 
@@ -136,7 +138,7 @@ $(".ui.dashboard .content .courses.section .search.form").on("submit", function 
 });
 
 $(".download-update.button").on("click", () => {
-	shell.openExternal(`https://github.com/${repoAccount}/udemy-downloader-gui/releases/latest`);
+	shell.openExternal(utils.getGithubUpdateTarget().releasesUrl);
 });
 
 $(".content .ui.about").on("click", 'a[href^="http"]', function (e) {
@@ -258,16 +260,19 @@ async function selectDownloadPath() {
 async function checkUpdate(account, silent = false) {
 	ui.busyCheckUpdate(true);
 
+	const owner = (account || githubUpdateTarget.owner).trim();
+	const repo = githubUpdateRepo;
+
 	try {
-		const response = await fetch(`https://api.github.com/repos/${account}/udemy-downloader-gui/releases/latest`);
+		const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/latest`);
 
 		if (!response.ok) {
 			throw new Error(`Failed to check for updates: ${response.status}`);
 		}
 
 		const data = await response.json();
-		if (data.tag_name != `v${appVersion}`) {
-			repoAccount = account;
+		if (utils.isRemoteVersionNewer(data.tag_name, appVersion)) {
+			repoAccount = owner;
 			$(".ui.update-available.modal").modal("show");
 		} else if (!silent) {
 			showAlert(translate("No updates available"));
@@ -308,8 +313,8 @@ async function checkLogin(alertExpired = true) {
 				console.log("fetchCourses done");
 			});
 
-			if (Settings.download.checkNewVersion) {
-				checkUpdate("heliomarpm", true);
+			if (Settings.download.checkNewVersion && utils.isUpdateCheckEnabledInPackage()) {
+				checkUpdate(githubUpdateTarget.owner, true);
 			}
 		} catch (error) {
 			console.error("Failed to fetch user profile", error);
@@ -648,6 +653,7 @@ async function fetchCourseContent(courseId, courseName, courseUrl) {
 				const srcUrl = `${courseUrl}t/${item._class}/${item.id}`;
 
 				chapterData.lectures.push({
+					id: item.id,
 					type: "url",
 					name: item.title,
 					src: `<script type="text/javascript">window.location = "${srcUrl}";</script>`,
@@ -655,19 +661,23 @@ async function fetchCourseContent(courseId, courseName, courseUrl) {
 				});
 				courseData.totalLectures++;
 			} else {
-				// === ИЗМЕНЕНИЕ: Добавлен id в lecture object ===
-				const lecture = { id: item.id, type, name: item.title, src: "", quality: Settings.download.videoQuality, isEncrypted: false };
+				const lecture = {
+					id: item.id,
+					type,
+					name: item.title,
+					src: "",
+					quality: Settings.download.videoQuality,
+					isEncrypted: false,
+				};
 				const { asset, supplementary_assets } = item;
 
 				if (!asset) {
-					// === ИЗМЕНЕНИЕ: Для roleplay/interview - создаём HTML-заглушку вместо попытки скачать ===
-					const isRoleplay = type === "roleplay";
-					const displayName = isRoleplay ? `${item.title} (Ролевая игра)` : item.title;
-					lecture.type = "url";
-					lecture.quality = "NotFound";
-					lecture.name = displayName;
-					lecture.src = `<script type="text/javascript">window.location = "${courseUrl}/lecture/${item.id}";</script>`;
-					appendLog("Skipped non-downloadable lesson", `Course: ${courseId}|${courseName}`, `Lecture: ${item.id}|${displayName}`);
+					utils.applyNoDownloadLectureStub(lecture, item, courseUrl);
+					appendLog(
+						utils.isRoleplayLecture(item) ? "ROLEPLAY_SKIP" : "No asset found",
+						`Course: ${courseId}|${courseName}`,
+						`Lecture: ${item.id}|${item.title}`
+					);
 					chapterData.lectures.push(lecture);
 					courseData.totalLectures++;
 					return;
@@ -728,6 +738,13 @@ async function fetchCourseContent(courseId, courseName, courseUrl) {
 					}
 				} else {
 					appendLog("Unknown Asset Type ", `type: ${assetType}`, `Course: ${courseId}|${courseName}`);
+				}
+
+				if (!lecture.src?.trim()) {
+					utils.applyNoDownloadLectureStub(lecture, item, courseUrl);
+					if (utils.isRoleplayLecture(item)) {
+						appendLog("ROLEPLAY_SKIP", `Course: ${courseId}|${courseName}`, `Lecture: ${item.id}|${item.title}`);
+					}
 				}
 
 				if (!Settings.download.skipSubtitles && asset.captions.length > 0) {
@@ -1148,6 +1165,8 @@ function startDownload($course, courseData, subTitle = "") {
 		auto: "red",
 		Auto: "red",
 		Attachment: "pink",
+		Roleplay: "purple",
+		Interactive: "purple",
 		Subtitle: "black",
 	};
 
@@ -1386,17 +1405,52 @@ function startDownload($course, courseData, subTitle = "") {
 				});
 			}
 
+			function finishLectureProgress() {
+				$progressCombined.progress("increment");
+				downloaded++;
+				downloadLecture(chapterIndex, ++lectureIndex, countLectures, sanitizedChapterName);
+			}
+
+			function continueAfterUrlLectureSaved() {
+				if (lectureData.attachments?.length) {
+					lectureData.attachments.sort(utils.dynamicSort("name"));
+					downloadAttachments(0, lectureData.attachments.length);
+				} else {
+					finishLectureProgress();
+				}
+			}
+
 			function downloadAttachments(index, totalAttachments) {
 				$progressIndividual.progress("reset");
 
+				if (index >= totalAttachments) {
+					finishLectureProgress();
+					return;
+				}
+
 				const attachment = lectureData.attachments[index];
+				if (!attachment) {
+					finishLectureProgress();
+					return;
+				}
+
 				const attachmentName = attachment.name.trim();
 
 				setLabelQuality(attachment.quality);
 
+				if (!attachment.src?.trim()) {
+					appendLog("ATTACHMENT_EMPTY_SRC", `Lecture: ${lectureName}`, `Attachment: ${attachmentName}`);
+					if (index + 1 >= totalAttachments) {
+						finishLectureProgress();
+					} else {
+						downloadAttachments(index + 1, totalAttachments);
+					}
+					return;
+				}
+
 				if (["article", "url"].includes(attachment.type)) {
 					const wfDir = downloadDirectory + "/" + courseName + "/" + sanitizedChapterName;
-					window.electronAPI.writeFile(
+					fs.writeFile(
 						utils.getSequenceName(lectureIndex + 1, countLectures, attachmentName + ".html", `.${index + 1} `, wfDir).fullPath,
 						`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
 body {font-family: 'Udemy Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;line-height: 1.6;color: #29303b;background-color: #fff;max-width: 800px;margin: 0 auto;padding: 2rem;}
@@ -1430,17 +1484,19 @@ th,td {border: 1px solid #d1d7dc;padding: 0.8rem;text-align: left;}
 th {background: #f7f9fa;font-weight: 600;}
 blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;color: #6a6f73;}
 </style></head><body><div class="text-viewer--scroll-container"><div class="text-viewer--content rt-scaffolding">${attachment.src}</div></div></body></html>`,
-						function () {
+						function (err) {
+							if (err) {
+								appendLog("downloadAttachments_error", err);
+								return;
+							}
 							index++;
-							if (index == totalAttachments) {
-								$progressCombined.progress("increment");
-								downloaded++;
-								downloadLecture(chapterIndex, ++lectureIndex, countLectures, sanitizedChapterName);
+							if (index >= totalAttachments) {
+								finishLectureProgress();
 							} else {
 								downloadAttachments(index, totalAttachments);
 							}
 						}
-					).catch((err) => appendLog("downloadAttachments_error", err));
+					);
 				} else {
 					let fileExtension = attachment.src.split("/").pop().split("?").shift().split(".").pop();
 					fileExtension = attachment.name.split(".").pop() == fileExtension ? "" : "." + fileExtension;
@@ -1473,10 +1529,8 @@ blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;col
 						index++;
 
 						clearInterval(timerDownloader);
-						if (index == totalAttachments) {
-							$progressCombined.progress("increment");
-							downloaded++;
-							downloadLecture(chapterIndex, ++lectureIndex, countLectures, sanitizedChapterName);
+						if (index >= totalAttachments) {
+							finishLectureProgress();
 						} else {
 							downloadAttachments(index, totalAttachments);
 						}
@@ -1488,16 +1542,14 @@ blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;col
 				$progressIndividual.progress("reset");
 				const attachment = lectureData.attachments;
 
-				if (attachment) {
+				if (attachment?.length) {
 					lectureData.attachments.sort(utils.dynamicSort("name"));
 					downloadAttachments(0, attachment.length);
 				} else {
 					if (lectureData.isEncrypted) {
 						appendLog("Video with DRM Protection", `Chapter: ${chapterName}\nLecture: ${lectureName}`);
 					}
-					$progressCombined.progress("increment");
-					downloaded++;
-					downloadLecture(chapterIndex, ++lectureIndex, countLectures, sanitizedChapterName);
+					finishLectureProgress();
 				}
 			}
 
@@ -1685,16 +1737,7 @@ th {background: #f7f9fa;font-weight: 600;}
 blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;color: #6a6f73;}
 </style></head><body><div class="text-viewer--scroll-container"><div class="text-viewer--content rt-scaffolding">${lectureData.src}</div></div></body></html>`,
 					function () {
-						if (lectureData.attachments) {
-							lectureData.attachments.sort(utils.dynamicSort("name"));
-							const totalAttachments = lectureData.attachments.length;
-							let indexador = 0;
-							downloadAttachments(indexador, totalAttachments);
-						} else {
-							$progressCombined.progress("increment");
-							downloaded++;
-							downloadLecture(chapterIndex, ++lectureIndex, countLectures, sanitizedChapterName);
-						}
+						continueAfterUrlLectureSaved();
 					}
 				);
 			} else {
@@ -1709,17 +1752,40 @@ blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;col
 				// $lecture_name.html(`${courseData["chapters"][chapterIndex].name}\\${lectureName}`);
 				const skipLecture = Settings.download.type == Settings.DownloadType.OnlyAttachments;
 
-				if (!lectureData.src && lectureType === "video") {
-					const externalUrl = `${courseData.courseUrl}/lecture/${lectureData.id || ""}`;
-					fs.writeFile(
-						seqName.fullPath.replace(".mp4", ".html"),
-						`<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${externalUrl}"><title>${lectureName}</title></head><body><p>Redirecting to <a href="${externalUrl}">${lectureName}</a></p></body></html>`,
-						function () {
-							$progressCombined.progress("increment");
-							downloaded++;
-							downloadLecture(chapterIndex, ++lectureIndex, countLectures, sanitizedChapterName);
-						}
+				if (!lectureData.src?.trim()) {
+					const htmlSeqName = utils.getSequenceName(
+						lectureIndex + 1,
+						countLectures,
+						sanitizedLectureName + ".html",
+						". ",
+						`${downloadDirectory}/${courseName}/${sanitizedChapterName}`
 					);
+					const mtdPath = seqName.fullPath + ".mtd";
+
+					if (fs.existsSync(mtdPath)) {
+						try {
+							fs.unlinkSync(mtdPath);
+						} catch (_) {}
+					}
+
+					if (fs.existsSync(htmlSeqName.fullPath)) {
+						endDownloadAttachment();
+						return;
+					}
+
+					const stubInner =
+						lectureData.src?.trim() ||
+						utils.buildLectureStubHtml(
+							courseData.courseUrl,
+							lectureData.id,
+							lectureName,
+							"This lecture has no downloadable media. Open it on Udemy."
+						);
+					const stubHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${lectureName}</title></head><body>${stubInner}</body></html>`;
+
+					fs.writeFile(htmlSeqName.fullPath, stubHtml, function () {
+						endDownloadAttachment();
+					});
 					return;
 				}
 
@@ -1729,33 +1795,11 @@ blockquote {border-left: 4px solid #a435f0;padding-left: 1rem;margin: 1rem 0;col
 						return;
 					}
 
-					const mtdPath = seqName.fullPath + ".mtd";
-					if (fs.existsSync(mtdPath)) {
-						try {
-							const mtdSize = fs.statSync(mtdPath).size;
-							if (!mtdSize) {
-								fs.unlinkSync(mtdPath);
-							}
-						} catch (e) {
-							fs.unlinkSync(mtdPath);
-						}
+					if (fs.existsSync(seqName.fullPath + ".mtd") && !fs.statSync(seqName.fullPath + ".mtd").size) {
+						fs.unlinkSync(seqName.fullPath + ".mtd");
 					}
 
-					if (!lectureData.src || lectureData.src.trim() === "") {
-						appendLog("SKIP_EMPTY_SRC", `Lecture: ${lectureData.id || "?"}|${lectureName}`, `Path: ${seqName.fullPath}`);
-						fs.writeFile(
-							seqName.fullPath.replace(".mp4", ".html"),
-							`<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${courseData.courseUrl}/lecture/${lectureData.id || ""}"><title>${lectureName}</title></head><body><p>No video source available</p></body></html>`,
-							function () {
-								$progressCombined.progress("increment");
-								downloaded++;
-								downloadLecture(chapterIndex, ++lectureIndex, countLectures, sanitizedChapterName);
-							}
-						);
-						return;
-					}
-
-					if (fs.existsSync(mtdPath)) {
+					if (fs.existsSync(seqName.fullPath + ".mtd")) {
 						var dl = downloader.resumeDownload(seqName.fullPath);
 					} else {
 						var dl = downloader.download(lectureData.src, seqName.fullPath);

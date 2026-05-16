@@ -1,14 +1,17 @@
 {
   "name": "udeler",
   "productName": "Udeler",
-  "version": "1.14.0",
+  "version": "1.14.1",
   "description": "A cross platform (Windows, Mac, Linux) desktop application for downloading Udemy Courses.",
   "main": "main.js",
   "type": "commonjs",
   "vars": {
     "urlHelp": "https://heliomarpm.notion.site/heliomarpm/How-to-get-an-Access-Token-b0ce5f89073c4965b47721197dcb2497",
     "urlToggles": "https://raw.githubusercontent.com/heliomarpm/feature_toggles/main/udemy-downloader-gui.json",
-    "urlDonate": "https://www.paypal.com/donate?business=KBVHLR7Z9V7B2&no_recurring=0&currency_code=USD"
+    "urlDonate": "https://www.paypal.com/donate?business=KBVHLR7Z9V7B2&no_recurring=0&currency_code=USD",
+    "updateCheckEnabled": false,
+    "updateGithubOwner": "bux212",
+    "updateGithubRepo": "udemy-downloader-gui"
   },
   "repository": {
     "type": "git",

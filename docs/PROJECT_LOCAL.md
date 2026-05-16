@@ -37,6 +37,18 @@
 3. **Media playlist**: сбор всех не‑комментарийных URI‑строк (в т.ч. `.m4s`, не только `.ts`); поддержка **`#EXT-X-MAP:URI="..."`** (init‑сегмент).
 4. Если после разбора **не осталось ни одного сегмента** (`list.length === 0`): лог `HLS_EMPTY_PLAYLIST`, сброс курса в состояние ошибки (`download-error`), а не «успешное» завершение без файлов.
 
+**Файлы:** `app/helpers/utils.js`, `app/app.js` (`fetchCourseContent`, `downloadLecture`).
+
+### Ролевая игра / лекции без asset
+
+**Проблема:** лекции «Ролевая игра» (и др. без `asset` в API) попадали в скачивание с `src: ""` и типом `lecture` → `downloader.download('', ...mp4)` → `DL_ONERROR`, `url:""`, битые `.mtd`.
+
+**Что сделано:**
+
+1. При `!asset` или пустом `src` после парсинга: `type: "url"`, `id`, HTML‑заглушка со ссылкой на лекцию в Udemy (`utils.applyNoDownloadLectureStub`).
+2. Определение roleplay по заголовку: `/roleplay|ролевая игра/i` → лог `ROLEPLAY_SKIP`.
+3. В `downloadLecture` — защита от пустого `src`: удаление `.mtd`, запись `.html`, продолжение курса без `mt-files-downloader`.
+
 ---
 
 ## 3. Сборка `.exe` (локально)

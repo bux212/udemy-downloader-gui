@@ -66,7 +66,7 @@ const Settings = (() => {
 
 	/** @type {DownloadSetting} */
 	const DownloadDefaultOptions = Object.freeze({
-		checkNewVersion: true,
+		checkNewVersion: false,
 		defaultSubtitle: undefined,
 		path: path.join(homedir(), "Downloads", "Udeler"),
 		autoStartDownload: false,

@@ -6,5 +6,6 @@ dist
 .qodo
 .vscode
 .cursor
-docs/ELECTRON_29_MIGRATION.md
+docs
 .qoder/plans/Phase_2_Electron_Modernization_d8a15115.md
+udeler.log

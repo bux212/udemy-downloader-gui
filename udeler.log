@@ -1,7 +1,61 @@
 [19.04.2026, 21:52:38] App Started: Udeler v1.14.0 - 2026-04-19T19:52:38.941Z
 [19.04.2026, 21:52:41] App Started: Udeler v1.14.0 - 2026-04-19T19:52:41.597Z
 [19.04.2026, 21:52:43] App Started: Udeler v1.14.0 - 2026-04-19T19:52:43.429Z
-[19.04.2026, 23:29:55] CONSOLE: WARN: [App Started] Udeler v1.14.0 - 2026-04-19T21:29:55.882Z
-[19.04.2026, 23:29:55] App Started: Udeler v1.14.0 - 2026-04-19T21:29:55.882Z
-[19.04.2026, 23:34:40] CONSOLE: WARN: [App Started] Udeler v1.14.0 - 2026-04-19T21:34:40.889Z
-[19.04.2026, 23:34:40] App Started: Udeler v1.14.0 - 2026-04-19T21:34:40.889Z
+
+[20.04.2026, 21:03:11] CONSOLE: WARN: [App Started] Udeler v1.14.0 - 2026-04-20T19:03:10.986Z
+[20.04.2026, 21:03:10] App Started: Udeler v1.14.0 - 2026-04-20T19:03:10.986Z
+[20.04.2026, 21:03:17] CONSOLE: WARN: [Skipped non-downloadable lesson] Course: 7059671|Parenting in the AI Age: Raise Smart & Future-Ready Kids
+
+Lecture: 32507|Understanding AI Tools Used by Students
+[20.04.2026, 21:03:17] CONSOLE: WARN: [Skipped non-downloadable lesson] Course: 7059671|Parenting in the AI Age: Raise Smart & Future-Ready Kids
+
+Lecture: 32508|Discussing Screen Time and Focus with a School Counselor
+[20.04.2026, 21:03:17] CONSOLE: WARN: [Skipped non-downloadable lesson] Course: 7059671|Parenting in the AI Age: Raise Smart & Future-Ready Kids
+
+Lecture: 32510|Discussing Family Technology Rules with Your Spouse
+[20.04.2026, 21:03:17] CONSOLE: WARN: [Skipped non-downloadable lesson] Course: 7059671|Parenting in the AI Age: Raise Smart & Future-Ready Kids
+
+Lecture: 32511|Teacher Concern About AI-Generated Homework
+[20.04.2026, 21:03:17] CONSOLE: WARN: [Skipped non-downloadable lesson] Course: 7059671|Parenting in the AI Age: Raise Smart & Future-Ready Kids
+
+Lecture: 32512|Preparing Children for an AI-Driven Future
+[20.04.2026, 21:03:17] Skipped non-downloadable lesson: Course: 7059671|Parenting in the AI Age: Raise Smart & Future-Ready Kids
+
+Lecture: 32507|Understanding AI Tools Used by Students
+[20.04.2026, 21:03:17] Skipped non-downloadable lesson: Course: 7059671|Parenting in the AI Age: Raise Smart & Future-Ready Kids
+
+Lecture: 32508|Discussing Screen Time and Focus with a School Counselor
+[20.04.2026, 21:03:17] Skipped non-downloadable lesson: Course: 7059671|Parenting in the AI Age: Raise Smart & Future-Ready Kids
+
+Lecture: 32510|Discussing Family Technology Rules with Your Spouse
+[20.04.2026, 21:03:17] Skipped non-downloadable lesson: Course: 7059671|Parenting in the AI Age: Raise Smart & Future-Ready Kids
+
+Lecture: 32511|Teacher Concern About AI-Generated Homework
+[20.04.2026, 21:03:17] Skipped non-downloadable lesson: Course: 7059671|Parenting in the AI Age: Raise Smart & Future-Ready Kids
+
+Lecture: 32512|Preparing Children for an AI-Driven Future
+[20.04.2026, 22:23:10] CONSOLE: WARN: [App Started] Udeler v1.14.0 - 2026-04-20T20:23:10.844Z
+[20.04.2026, 22:23:10] App Started: Udeler v1.14.0 - 2026-04-20T20:23:10.844Z
+[20.04.2026, 22:24:10] CONSOLE: WARN: [Skipped non-downloadable lesson] Course: 7059707|Claude For Accounting: Accounting & Bookkeeping Fast-Track
+
+Lecture: 32244|Meet Your AI Accounting Coach
+[20.04.2026, 22:24:10] Skipped non-downloadable lesson: Course: 7059707|Claude For Accounting: Accounting & Bookkeeping Fast-Track
+
+Lecture: 32244|Meet Your AI Accounting Coach
+[20.04.2026, 22:37:24] CONSOLE: ERROR: dl.on(error) Invalid file path:  D:\Download\Udeler/Claude For Accounting Accounting & Bookkeeping Fast-Track/4. Your Feedback Matters/1. Your Feedback Matters.mp4.mtd
+[20.04.2026, 22:37:24] CONSOLE: WARN: [DL_ONERROR] Invalid file path:  D:\Download\Udeler/Claude For Accounting Accounting & Bookkeeping Fast-Track/4. Your Feedback Matters/1. Your Feedback Matters.mp4.mtd
+[20.04.2026, 22:37:24] DL_ONERROR: Invalid file path:  D:\Download\Udeler/Claude For Accounting Accounting & Bookkeeping Fast-Track/4. Your Feedback Matters/1. Your Feedback Matters.mp4.mtd
+[20.04.2026, 22:50:58] CONSOLE: WARN: [App Started] Udeler v1.14.0 - 2026-04-20T20:50:58.783Z
+[20.04.2026, 22:50:58] App Started: Udeler v1.14.0 - 2026-04-20T20:50:58.783Z
+[20.04.2026, 22:51:07] CONSOLE: WARN: [Skipped non-downloadable lesson] Course: 7059707|Claude For Accounting: Accounting & Bookkeeping Fast-Track
+
+Lecture: 32244|Meet Your AI Accounting Coach
+[20.04.2026, 22:51:07] Skipped non-downloadable lesson: Course: 7059707|Claude For Accounting: Accounting & Bookkeeping Fast-Track
+
+Lecture: 32244|Meet Your AI Accounting Coach
+[16.05.2026, 22:55:08] CONSOLE: WARN: [App Started] Udeler v1.14.0 - 2026-05-16T20:55:08.426Z
+[16.05.2026, 22:55:08] App Started: Udeler v1.14.0 - 2026-05-16T20:55:08.426Z
+[16.05.2026, 23:01:59] CONSOLE: WARN: [App Started] Udeler v1.14.0 - 2026-05-16T21:01:59.827Z
+[16.05.2026, 23:01:59] App Started: Udeler v1.14.0 - 2026-05-16T21:01:59.827Z
+[16.05.2026, 23:16:14] CONSOLE: WARN: [App Started] Udeler v1.14.0 - 2026-05-16T21:16:14.010Z
+[16.05.2026, 23:16:14] App Started: Udeler v1.14.0 - 2026-05-16T21:16:14.010Z
